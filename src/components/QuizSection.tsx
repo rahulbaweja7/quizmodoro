@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+// Set workerSrc for pdfjs
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface Question {
   id: string;
@@ -12,10 +15,11 @@ interface Question {
 
 interface QuizSectionProps {
   topic: string;
+  quiz?: Question[];
 }
 
-export default function QuizSection({ topic }: QuizSectionProps) {
-  const [questions, setQuestions] = useState<Question[]>([]);
+export default function QuizSection({ topic, quiz }: QuizSectionProps) {
+  const [questions, setQuestions] = useState<Question[]>(quiz || []);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -99,8 +103,18 @@ export default function QuizSection({ topic }: QuizSectionProps) {
   };
 
   useEffect(() => {
-    generateQuiz();
-  }, [topic]);
+    if (quiz && quiz.length > 0) {
+      setQuestions(quiz);
+    } else {
+      setQuestions(mockQuestions[topic] || mockQuestions.general);
+    }
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setIsAnswered(false);
+    setScore(0);
+    setQuizCompleted(false);
+    setLoading(false);
+  }, [topic, quiz]);
 
   const generateQuiz = async () => {
     setLoading(true);
