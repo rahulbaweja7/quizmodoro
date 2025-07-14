@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, ChangeEvent } from 'react';
+import { useState, ChangeEvent, useEffect } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
 import QuizSection from '../components/QuizSection';
 import TopicSelector from '../components/TopicSelector';
 import ProgressStats from '../components/ProgressStats';
-import * as pdfjsLib from 'pdfjs-dist/build/pdf';
-(pdfjsLib as any).GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set workerSrc to CDN version for pdfjs-dist v3+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function Home() {
   const [currentMode, setCurrentMode] = useState<'timer' | 'quiz'>('timer');
@@ -44,12 +46,15 @@ export default function Home() {
         text += content.items.map((item: any) => item.str).join(' ') + '\n';
       }
       setPdfText(text);
+      console.log('Extracted PDF text:', text);
+      if (!text.trim()) {
+        setPdfError('No text could be extracted from this PDF. Please try another file.');
+      }
     } catch (err) {
       setPdfError('Failed to extract text from PDF.');
     }
   };
 
-  // Generate quiz from PDF text using OpenAI
   const handleGenerateQuizFromPdf = async () => {
     setGeneratingQuiz(true);
     setPdfError('');
@@ -87,6 +92,7 @@ export default function Home() {
       setQuiz(quizArr);
       setQuizReady(true);
     } catch (err) {
+      console.error(err);
       setPdfError('Failed to generate quiz from OpenAI.');
     }
     setGeneratingQuiz(false);
@@ -94,7 +100,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
       <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -119,7 +124,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* PDF Upload UI */}
       <div className="max-w-2xl mx-auto mt-8 mb-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
         <label className="block mb-2 font-semibold text-gray-900 dark:text-white">Upload PDF to study:</label>
         <input
@@ -149,12 +153,9 @@ export default function Home() {
         {pdfError && <div className="text-red-600 text-sm mt-2">{pdfError}</div>}
       </div>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Timer and Quiz */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Mode Toggle */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
                 <button
@@ -180,7 +181,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Timer or Quiz Component */}
             {currentMode === 'timer' ? (
               <PomodoroTimer />
             ) : (
@@ -194,7 +194,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Right Column - Topic Selector and Stats */}
           <div className="space-y-8">
             <TopicSelector
               selectedTopic={selectedTopic}

@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent } from 'react';
-import * as pdfjsLib from 'pdfjs-dist/build/pdf';
-// Set workerSrc for pdfjs
-(pdfjsLib as any).GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+import { useState, useEffect } from 'react';
+// No pdfjs-dist import here
 
 interface Question {
   id: string;
