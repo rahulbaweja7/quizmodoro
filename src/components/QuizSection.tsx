@@ -14,9 +14,10 @@ interface Question {
 interface QuizSectionProps {
   topic: string;
   quiz?: Question[];
+  onQuizComplete?: (scorePercent: number) => void;
 }
 
-export default function QuizSection({ topic, quiz }: QuizSectionProps) {
+export default function QuizSection({ topic, quiz, onQuizComplete }: QuizSectionProps) {
   const [questions, setQuestions] = useState<Question[]>(quiz || []);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -24,6 +25,8 @@ export default function QuizSection({ topic, quiz }: QuizSectionProps) {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(false);
   const [quizCompleted, setQuizCompleted] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
 
   // Mock questions for demonstration - in real app, these would come from OpenAI API
   const mockQuestions: Record<string, Question[]> = {
@@ -111,8 +114,26 @@ export default function QuizSection({ topic, quiz }: QuizSectionProps) {
     setIsAnswered(false);
     setScore(0);
     setQuizCompleted(false);
-    setLoading(false);
+    setShowReview(false);
+    setUserAnswers([]);
   }, [topic, quiz]);
+
+  // Store quiz result in localStorage on review/complete
+  useEffect(() => {
+    if (quizCompleted && showReview) {
+      const percentage = Math.round((score / questions.length) * 100);
+      const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+      history.unshift({
+        topic,
+        questions,
+        userAnswers,
+        score: percentage,
+        date: new Date().toISOString(),
+      });
+      localStorage.setItem('quizHistory', JSON.stringify(history.slice(0, 50)));
+    }
+    // eslint-disable-next-line
+  }, [quizCompleted, showReview]);
 
   const generateQuiz = async () => {
     setLoading(true);
@@ -138,6 +159,11 @@ export default function QuizSection({ topic, quiz }: QuizSectionProps) {
     if (selectedAnswer === null) return;
     
     setIsAnswered(true);
+    setUserAnswers(prev => {
+      const arr = [...prev];
+      arr[currentQuestionIndex] = selectedAnswer;
+      return arr;
+    });
     if (selectedAnswer === questions[currentQuestionIndex].correctAnswer) {
       setScore(score + 1);
     }
@@ -157,6 +183,52 @@ export default function QuizSection({ topic, quiz }: QuizSectionProps) {
     generateQuiz();
   };
 
+  // --- Quiz Review Screen ---
+  if (quizCompleted && showReview) {
+    const percentage = Math.round((score / questions.length) * 100);
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Quiz Review</h2>
+          <div className="text-2xl text-indigo-600 font-bold mb-2">Score: {percentage}%</div>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Review your answers and explanations below.</p>
+        </div>
+        <div className="space-y-6 max-h-96 overflow-y-auto">
+          {questions.map((q, idx) => (
+            <div key={q.id} className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+              <div className="font-semibold text-gray-900 dark:text-white mb-2">Q{idx + 1}: {q.question}</div>
+              <div className="mb-2">
+                <span className="font-medium">Your answer: </span>
+                <span className={userAnswers[idx] === q.correctAnswer ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                  {userAnswers[idx] !== null ? q.options[userAnswers[idx]!] : 'No answer'}
+                </span>
+                {userAnswers[idx] !== q.correctAnswer && (
+                  <span className="ml-2 text-gray-500">(Correct: <span className="text-green-600">{q.options[q.correctAnswer]}</span>)</span>
+                )}
+              </div>
+              {q.explanation && (
+                <div className="text-sm text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+                  <span className="font-semibold">Explanation: </span>{q.explanation}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="text-center mt-8">
+          <button
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200"
+            onClick={() => {
+              if (onQuizComplete) onQuizComplete(Math.round((score / questions.length) * 100));
+            }}
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+  // --- End Quiz Review Screen ---
+
   if (loading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
@@ -170,6 +242,10 @@ export default function QuizSection({ topic, quiz }: QuizSectionProps) {
 
   if (quizCompleted) {
     const percentage = Math.round((score / questions.length) * 100);
+    useEffect(() => {
+      if (onQuizComplete && showReview === false) setShowReview(true);
+      // eslint-disable-next-line
+    }, []);
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
         <div className="text-center">
@@ -196,10 +272,10 @@ export default function QuizSection({ topic, quiz }: QuizSectionProps) {
             )}
           </div>
           <button
-            onClick={handleRestartQuiz}
+            onClick={() => setShowReview(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200"
           >
-            Try Again
+            Review Answers
           </button>
         </div>
       </div>

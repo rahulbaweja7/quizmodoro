@@ -9,6 +9,29 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js';
 
+// --- Add a stub BreakTimer component ---
+function BreakTimer({ breakLength, onBreakEnd }: { breakLength: number; onBreakEnd: () => void }) {
+  const [timeLeft, setTimeLeft] = useState(breakLength);
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      onBreakEnd();
+      return;
+    }
+    const interval = setInterval(() => setTimeLeft(t => t - 1), 1000);
+    return () => clearInterval(interval);
+  }, [timeLeft, onBreakEnd]);
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+      <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Break Time</h2>
+      <div className="text-5xl font-bold text-green-600 mb-2">{`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`}</div>
+      <p className="text-gray-600 dark:text-gray-400">Relax and recharge! Your next session will start soon.</p>
+    </div>
+  );
+}
+// --- End BreakTimer stub ---
+
 export default function Home() {
   const [currentMode, setCurrentMode] = useState<'timer' | 'quiz'>('timer');
   const [selectedTopic, setSelectedTopic] = useState<string>('general');
@@ -20,6 +43,9 @@ export default function Home() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [sessionPhase, setSessionPhase] = useState<'study' | 'quiz' | 'break'>('study');
+  const [lastQuizScore, setLastQuizScore] = useState<number | null>(null);
+  const [breakLength, setBreakLength] = useState(300); // default 5 min
 
   // PDF upload and text extraction
   const handlePdfUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -117,6 +143,21 @@ export default function Home() {
     setGeneratingQuiz(false);
   };
 
+  // --- Adaptive break logic ---
+  function handleQuizComplete(score: number) {
+    setLastQuizScore(score);
+    // Example: <60% = 5min, 60-80% = 10min, >80% = 15min
+    let breakSec = 300;
+    if (score >= 80) breakSec = 900;
+    else if (score >= 60) breakSec = 600;
+    setBreakLength(breakSec);
+    setSessionPhase('break');
+  }
+  function handleBreakEnd() {
+    setSessionPhase('study');
+  }
+  // --- End adaptive break logic ---
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
@@ -190,45 +231,20 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Session Flow */}
           <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                <button
-                  onClick={() => setCurrentMode('timer')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    currentMode === 'timer'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Pomodoro Timer
-                </button>
-                <button
-                  onClick={() => setCurrentMode('quiz')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    currentMode === 'quiz'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Quiz Mode
-                </button>
-              </div>
-            </div>
-
-            {currentMode === 'timer' ? (
-              <PomodoroTimer />
-            ) : (
-              showQuiz && quizReady ? (
-                <QuizSection topic={selectedTopic} quiz={quiz} />
-              ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center text-gray-500 dark:text-gray-400">
-                  Upload a PDF and generate a quiz to get started.
-                </div>
-              )
+            {/* Mode Toggle removed for session flow */}
+            {sessionPhase === 'study' && (
+              <PomodoroTimer onSessionComplete={() => setSessionPhase('quiz')} />
+            )}
+            {sessionPhase === 'quiz' && quizReady && (
+              <QuizSection topic={selectedTopic} quiz={quiz} onQuizComplete={handleQuizComplete} />
+            )}
+            {sessionPhase === 'break' && (
+              <BreakTimer breakLength={breakLength} onBreakEnd={handleBreakEnd} />
             )}
           </div>
-
+          {/* Right Column - Topic Selector and Stats */}
           <div className="space-y-8">
             <TopicSelector
               selectedTopic={selectedTopic}

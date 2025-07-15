@@ -27,7 +27,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        {/* Only one header here! */}
+        <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center gap-6">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <a href="/">Quizmodoro</a>
+                </h1>
+                <a href="/history" className="text-sm font-medium text-indigo-600 dark:text-indigo-300 hover:underline transition-colors">History</a>
+              </div>
+              {/* ... existing user info ... */}
+            </div>
+          </div>
+        </header>
+        <main>{children}</main>
       </body>
     </html>
   );
