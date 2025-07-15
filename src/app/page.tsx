@@ -5,11 +5,7 @@ import PomodoroTimer from '../components/PomodoroTimer';
 import QuizSection from '../components/QuizSection';
 import TopicSelector from '../components/TopicSelector';
 import ProgressStats from '../components/ProgressStats';
-import * as pdfjsLib from 'pdfjs-dist';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js';
-
-// --- Add a stub BreakTimer component ---
 function BreakTimer({ breakLength, onBreakEnd }: { breakLength: number; onBreakEnd: () => void }) {
   const [timeLeft, setTimeLeft] = useState(breakLength);
   useEffect(() => {
@@ -20,8 +16,10 @@ function BreakTimer({ breakLength, onBreakEnd }: { breakLength: number; onBreakE
     const interval = setInterval(() => setTimeLeft(t => t - 1), 1000);
     return () => clearInterval(interval);
   }, [timeLeft, onBreakEnd]);
+
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
       <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Break Time</h2>
@@ -30,7 +28,6 @@ function BreakTimer({ breakLength, onBreakEnd }: { breakLength: number; onBreakE
     </div>
   );
 }
-// --- End BreakTimer stub ---
 
 export default function Home() {
   const [currentMode, setCurrentMode] = useState<'timer' | 'quiz'>('timer');
@@ -47,7 +44,6 @@ export default function Home() {
   const [lastQuizScore, setLastQuizScore] = useState<number | null>(null);
   const [breakLength, setBreakLength] = useState(300); // default 5 min
 
-  // PDF upload and text extraction
   const handlePdfUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     setPdfError('');
     setPdfText('');
@@ -68,34 +64,31 @@ export default function Home() {
       return;
     }
     setPdfName(file.name);
+
     try {
       if (typeof window === 'undefined') {
         setPdfError('PDF extraction only works in the browser.');
         setDebugInfo('Not running in browser environment.');
         return;
       }
-      setDebugInfo('Reading file as arrayBuffer...');
+
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js';
+
       const arrayBuffer = await file.arrayBuffer();
-      setDebugInfo('arrayBuffer loaded. Loading PDF...');
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      setDebugInfo('PDF loaded. Number of pages: ' + pdf.numPages);
       let text = '';
       for (let i = 1; i <= pdf.numPages; i++) {
-        setDebugInfo(prev => prev + `\nExtracting text from page ${i}...`);
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         text += content.items.map((item: any) => item.str).join(' ') + '\n';
       }
       setPdfText(text);
-      setDebugInfo(prev => prev + '\nExtraction complete. Text length: ' + text.length);
-      console.log('Extracted PDF text:', text);
       if (!text.trim()) {
         setPdfError('No text could be extracted from this PDF. Please try another file.');
-        setDebugInfo(prev => prev + '\nNo text extracted.');
       }
     } catch (err: any) {
       setPdfError('Failed to extract text from PDF.');
-      setDebugInfo(prev => prev + '\nError: ' + (err?.message || err));
       console.error('PDF extraction error:', err);
     }
   };
@@ -110,7 +103,9 @@ export default function Home() {
         setGeneratingQuiz(false);
         return;
       }
+
       const prompt = `Generate 5 multiple-choice quiz questions (with 4 options each, one correct answer, and a short explanation) based on the following text. Respond in JSON array format with fields: id, question, options, correctAnswer (index), explanation.\n\nText:\n${pdfText.slice(0, 4000)}`;
+
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -124,6 +119,7 @@ export default function Home() {
           temperature: 0.7
         })
       });
+
       const data = await response.json();
       let quizArr: any[] = [];
       try {
@@ -143,97 +139,57 @@ export default function Home() {
     setGeneratingQuiz(false);
   };
 
-  // --- Adaptive break logic ---
   function handleQuizComplete(score: number) {
     setLastQuizScore(score);
-    // Example: <60% = 5min, 60-80% = 10min, >80% = 15min
     let breakSec = 300;
     if (score >= 80) breakSec = 900;
     else if (score >= 60) breakSec = 600;
     setBreakLength(breakSec);
     setSessionPhase('break');
   }
+
   function handleBreakEnd() {
     setSessionPhase('study');
   }
-  // --- End adaptive break logic ---
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Quizmodoro
-              </h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <img
-                  src="/default-avatar.svg"
-                  alt="Profile"
-                  className="w-8 h-8 rounded-full"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Demo User
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <div className="max-w-2xl mx-auto mt-8 mb-4">
         <div className="relative bg-white/90 dark:bg-gray-800/90 rounded-3xl shadow-2xl p-8 border border-gray-200 dark:border-gray-700 transition-all duration-300">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="flex flex-col items-center w-full">
-              <div className="w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-200 to-indigo-400 dark:from-indigo-700 dark:to-indigo-900 shadow-lg mb-4">
-                <svg className="w-8 h-8 text-indigo-700 dark:text-indigo-200" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-              </div>
-              <label className="block mb-2 font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Upload PDF to study</label>
-              <label htmlFor="pdf-upload" className="w-full cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-indigo-400 dark:border-indigo-600 rounded-xl py-8 px-4 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all duration-200 mb-2">
-                <span className="text-indigo-700 dark:text-indigo-200 font-medium mb-2">Drag & drop or click to select a PDF</span>
-                <input
-                  id="pdf-upload"
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handlePdfUpload}
-                  className="hidden"
-                />
-              </label>
-              {pdfName && <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">Selected: <span className="font-semibold">{pdfName}</span></div>}
-              {debugInfo && <pre className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-900 rounded p-2 mt-2 overflow-x-auto max-h-32">{debugInfo}</pre>}
-              {pdfError && <div className="text-red-600 text-sm mt-2 animate-pulse-glow">{pdfError}</div>}
-              {pdfText && !quizReady && (
-                <button
-                  onClick={handleGenerateQuizFromPdf}
-                  disabled={generatingQuiz}
-                  className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition-all duration-200 mb-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 17l-4 4m0 0l-4-4m4 4V3" /></svg>
-                  {generatingQuiz ? 'Generating Quiz...' : 'Generate Quiz from PDF'}
-                </button>
-              )}
-              {quizReady && (
-                <button
-                  onClick={() => setShowQuiz(true)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition-all duration-200 mb-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" /></svg>
-                  Take Quiz
-                </button>
-              )}
-            </div>
+          {/* PDF Upload Section */}
+          <h2 className="text-xl font-semibold mb-4 text-center text-gray-900 dark:text-white">
+            Upload PDF to study
+          </h2>
+          <div className="border-2 border-dashed border-blue-500 rounded-xl p-6 text-center relative hover:bg-blue-50 dark:hover:bg-gray-700 transition">
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={handlePdfUpload}
+              className="absolute inset-0 opacity-0 cursor-pointer z-10"
+            />
+            <p className="text-gray-700 dark:text-gray-300">Drag & drop or click to select a PDF</p>
           </div>
+          {pdfError && <p className="mt-2 text-red-500 text-sm text-center">{pdfError}</p>}
+          {pdfText && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                PDF uploaded: <strong>{pdfName}</strong>
+              </p>
+              <button
+                onClick={handleGenerateQuizFromPdf}
+                disabled={generatingQuiz}
+                className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {generatingQuiz ? 'Generating Quiz...' : 'Generate Quiz from PDF'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Session Flow */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Mode Toggle removed for session flow */}
             {sessionPhase === 'study' && (
               <PomodoroTimer onSessionComplete={() => setSessionPhase('quiz')} />
             )}
@@ -244,12 +200,8 @@ export default function Home() {
               <BreakTimer breakLength={breakLength} onBreakEnd={handleBreakEnd} />
             )}
           </div>
-          {/* Right Column - Topic Selector and Stats */}
           <div className="space-y-8">
-            <TopicSelector
-              selectedTopic={selectedTopic}
-              onTopicChange={setSelectedTopic}
-            />
+            <TopicSelector selectedTopic={selectedTopic} onTopicChange={setSelectedTopic} />
             <ProgressStats userId="demo-user" />
           </div>
         </div>

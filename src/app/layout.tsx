@@ -24,23 +24,25 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {/* Only one header here! */}
-        <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center gap-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  <a href="/">Quizmodoro</a>
-                </h1>
-                <a href="/history" className="text-sm font-medium text-indigo-600 dark:text-indigo-300 hover:underline transition-colors">History</a>
-              </div>
-              {/* ... existing user info ... */}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800`}>
+
+        {/* Modern App Bar */}
+        <nav className="sticky top-0 z-30 bg-white dark:bg-gray-900 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            {/* App Name */}
+            <a href="/" className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight hover:opacity-80 transition">Quizmodoro</a>
+            {/* Navigation Links */}
+            <div className="flex gap-6">
+              <a href="/" className="text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition">Home</a>
+              <a href="/history" className="text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition">History</a>
+            </div>
+            {/* User Info (placeholder) */}
+            <div className="flex items-center gap-2">
+              <img src="/default-avatar.svg" alt="Profile" className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-700" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Demo User</span>
             </div>
           </div>
-        </header>
+        </nav>
         <main>{children}</main>
       </body>
     </html>
